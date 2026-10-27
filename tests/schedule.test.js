@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   generateSlots, buildAvailability, nowInZone, validateSettings, validateBooking,
-  SERVICES, DEFAULT_SCHEDULE, isBookableSlot,
+  DEFAULT_SERVICES, OTHER_SERVICE, validateServices, DEFAULT_SCHEDULE, isBookableSlot,
 } from '../src/schedule.js';
 
 const sched = (over = {}) => ({ ...DEFAULT_SCHEDULE, ...over });
@@ -160,13 +160,14 @@ test('settings: rejects empty shop name', () => {
   assert.equal(validateSettings(s).ok, false);
 });
 
+const NAMES = [...DEFAULT_SERVICES.map((s) => s.name), OTHER_SERVICE];
 const goodBooking = () => ({
   date: MON, time: '08:00', name: '  Sam Lee ', phone: '(555) 123-4567', car: ' 2015 Honda Civic ',
   service: 'Brakes', note: ' hi ',
 });
 
 test('booking: valid input is trimmed', () => {
-  const r = validateBooking(goodBooking());
+  const r = validateBooking(goodBooking(), NAMES);
   assert.equal(r.ok, true);
   assert.equal(r.value.name, 'Sam Lee');
   assert.equal(r.value.car, '2015 Honda Civic');
@@ -176,30 +177,103 @@ test('booking: valid input is trimmed', () => {
 test('booking: phone needs 7-15 digits and only allowed characters', () => {
   for (const p of ['12345', '1'.repeat(16), 'call me', '555-123-45a7']) {
     const b = goodBooking(); b.phone = p;
-    assert.equal(validateBooking(b).ok, false, p);
+    assert.equal(validateBooking(b, NAMES).ok, false, p);
   }
   for (const p of ['+1 555 123 4567', '555-1234']) {
     const b = goodBooking(); b.phone = p;
-    assert.equal(validateBooking(b).ok, true, p);
+    assert.equal(validateBooking(b, NAMES).ok, true, p);
   }
 });
 
 test('booking: service must be in list', () => {
   const b = goodBooking(); b.service = 'Free car';
-  assert.equal(validateBooking(b).ok, false);
-  for (const s of SERVICES) { b.service = s; assert.equal(validateBooking(b).ok, true); }
+  assert.equal(validateBooking(b, NAMES).ok, false);
+  for (const s of NAMES) { b.service = s; assert.equal(validateBooking(b, NAMES).ok, true); }
 });
 
 test('booking: length limits', () => {
-  let b = goodBooking(); b.name = '   '; assert.equal(validateBooking(b).ok, false);
-  b = goodBooking(); b.name = 'x'.repeat(81); assert.equal(validateBooking(b).ok, false);
-  b = goodBooking(); b.car = ''; assert.equal(validateBooking(b).ok, false);
-  b = goodBooking(); b.car = 'x'.repeat(81); assert.equal(validateBooking(b).ok, false);
-  b = goodBooking(); b.note = 'x'.repeat(501); assert.equal(validateBooking(b).ok, false);
-  b = goodBooking(); b.note = undefined; assert.equal(validateBooking(b).ok, true);
+  let b = goodBooking(); b.name = '   '; assert.equal(validateBooking(b, NAMES).ok, false);
+  b = goodBooking(); b.name = 'x'.repeat(81); assert.equal(validateBooking(b, NAMES).ok, false);
+  b = goodBooking(); b.car = ''; assert.equal(validateBooking(b, NAMES).ok, false);
+  b = goodBooking(); b.car = 'x'.repeat(81); assert.equal(validateBooking(b, NAMES).ok, false);
+  b = goodBooking(); b.note = 'x'.repeat(501); assert.equal(validateBooking(b, NAMES).ok, false);
+  b = goodBooking(); b.note = undefined; assert.equal(validateBooking(b, NAMES).ok, true);
 });
 
 test('booking: bad date/time format rejected', () => {
-  let b = goodBooking(); b.date = '10/26/2026'; assert.equal(validateBooking(b).ok, false);
-  b = goodBooking(); b.time = '8am'; assert.equal(validateBooking(b).ok, false);
+  let b = goodBooking(); b.date = '10/26/2026'; assert.equal(validateBooking(b, NAMES).ok, false);
+  b = goodBooking(); b.time = '8am'; assert.equal(validateBooking(b, NAMES).ok, false);
+});
+
+test('booking: custom list accepts listed name and Something else, rejects unlisted', () => {
+  const names = ['Wheel alignment', OTHER_SERVICE];
+  let b = goodBooking(); b.service = 'Wheel alignment';
+  assert.equal(validateBooking(b, names).ok, true);
+  b.service = OTHER_SERVICE;
+  assert.equal(validateBooking(b, names).ok, true);
+  b.service = 'Brakes';
+  const r = validateBooking(b, names);
+  assert.equal(r.ok, false);
+  assert.equal(r.error, 'Please choose what you need.');
+});
+
+test('services: defaults are valid', () => {
+  assert.equal(DEFAULT_SERVICES.length, 5);
+  assert.equal(validateServices(DEFAULT_SERVICES).ok, true);
+});
+
+test('services: good list is trimmed', () => {
+  const r = validateServices([{ name: ' Oil ', price: ' $5 ', note: ' hi ' }, { name: 'Tires', price: '$1' }]);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value, [{ name: 'Oil', price: '$5', note: 'hi' }, { name: 'Tires', price: '$1', note: '' }]);
+});
+
+test('services: empty list and 31 items rejected', () => {
+  const r = validateServices([]);
+  assert.equal(r.ok, false);
+  assert.equal(r.error, 'Please keep at least one item.');
+  assert.equal(validateServices(Array.from({ length: 31 }, (_, i) => ({ name: 'n' + i, price: '$1', note: '' }))).ok, false);
+  assert.equal(validateServices(Array.from({ length: 30 }, (_, i) => ({ name: 'n' + i, price: '$1', note: '' }))).ok, true);
+  assert.equal(validateServices('x').ok, false);
+});
+
+test('services: missing name or price, long fields', () => {
+  let r = validateServices([{ name: 'A', price: '$1' }, { name: 'B', price: ' ' }]);
+  assert.equal(r.error, 'Item 2: please enter a price, like "$80" or "From $120".');
+  r = validateServices([{ name: 'A', price: '$1' }, { name: 'B', price: '$1' }, { name: '  ', price: '$1' }]);
+  assert.equal(r.error, 'Item 3: please enter a name.');
+  assert.equal(validateServices([{ name: 'x'.repeat(61), price: '$1' }]).ok, false);
+  assert.equal(validateServices([{ name: 'A', price: 'x'.repeat(31) }]).ok, false);
+  assert.equal(validateServices([{ name: 'A', price: '$1', note: 'x'.repeat(121) }]).ok, false);
+  assert.equal(validateServices([{ name: 'A', price: '$1', note: 'x'.repeat(120) }]).ok, true);
+});
+
+test('services: duplicate names (case-insensitive) rejected', () => {
+  const r = validateServices([{ name: 'Brakes', price: '$1' }, { name: 'brakes ', price: '$2' }]);
+  assert.equal(r.ok, false);
+  assert.equal(r.error, '"brakes" is in the list twice.');
+});
+
+test('services: Something else is rejected', () => {
+  const r = validateServices([{ name: 'something ELSE', price: '$1' }]);
+  assert.equal(r.ok, false);
+  assert.equal(r.error, '"Something else" is always shown, so it can\'t be added here.');
+});
+
+test('settings: shop email valid, invalid, empty', () => {
+  const s = goodSettings(); s.shop.email = ' a@b.co ';
+  const r = validateSettings(s);
+  assert.equal(r.ok, true);
+  assert.equal(r.value.shop.email, 'a@b.co');
+  for (const bad of ['bad', 'a@b', 'a b@c.com', '@b.co']) {
+    const t = goodSettings(); t.shop.email = bad;
+    const x = validateSettings(t);
+    assert.equal(x.ok, false, bad);
+    assert.equal(x.error, 'Please enter a valid email address, like name@example.com.');
+  }
+  const e = goodSettings(); e.shop.email = '';
+  assert.equal(validateSettings(e).value.shop.email, '');
+  assert.equal(validateSettings(goodSettings()).value.shop.email, '');
+  const long = goodSettings(); long.shop.email = 'a'.repeat(100) + '@b.co';
+  assert.equal(validateSettings(long).ok, false);
 });

@@ -1,13 +1,15 @@
 // Pure scheduling logic. No Cloudflare APIs in here so it can be unit tested with plain Node.
 // Dates are "YYYY-MM-DD" and times "HH:MM" (24h), always in the shop's local time.
 
-export const SERVICES = [
-  'Oil change',
-  'Brakes',
-  'Check engine light / diagnostics',
-  'Tires',
-  'Battery',
-  'Something else',
+export const OTHER_SERVICE = 'Something else';
+
+// Used when the stored list is missing or broken. Same as migrations/0003_services.sql.
+export const DEFAULT_SERVICES = [
+  { name: 'Oil change', price: 'From $79', note: 'Synthetic oil and a new filter.' },
+  { name: 'Brakes', price: 'From $189', note: 'New pads for one axle. Rotors extra if needed.' },
+  { name: 'Check engine light / diagnostics', price: '$99', note: 'We find out why the light is on.' },
+  { name: 'Tires', price: 'From $60', note: 'Swap 4 tires that are already on rims.' },
+  { name: 'Battery', price: 'From $169', note: 'New battery, installed.' },
 ];
 
 export const SLOT_LENGTHS = [15, 20, 30, 45, 60, 90, 120];
@@ -163,10 +165,12 @@ export function validateSettings(input) {
   const cleanShop = {
     name: text(shop.name, 80),
     phone: text(shop.phone, 40),
+    email: text(shop.email, 100),
     address: text(shop.address, 200),
     about: text(shop.about, 500),
   };
   if (!cleanShop.name) return fail('Please enter the shop name.');
+  if (cleanShop.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanShop.email)) return fail('Please enter a valid email address, like name@example.com.');
 
   return {
     ok: true,
@@ -177,11 +181,36 @@ export function validateSettings(input) {
   };
 }
 
+export function validateServices(list) {
+  if (!Array.isArray(list)) return fail('The list of services is missing.');
+  if (list.length < 1) return fail('Please keep at least one item.');
+  if (list.length > 30) return fail('Please keep the list to 30 items or fewer.');
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const seen = new Set();
+  const value = [];
+  for (let i = 0; i < list.length; i++) {
+    const it = list[i] && typeof list[i] === 'object' ? list[i] : {};
+    const label = `Item ${i + 1}`;
+    const name = str(it.name), price = str(it.price), note = str(it.note);
+    if (!name) return fail(`${label}: please enter a name.`);
+    if (name.length > 60) return fail(`${label}: the name is too long (up to 60 letters).`);
+    if (!price) return fail(`${label}: please enter a price, like "$80" or "From $120".`);
+    if (price.length > 30) return fail(`${label}: the price is too long (up to 30 letters).`);
+    if (note.length > 120) return fail(`${label}: the note is too long (up to 120 letters).`);
+    const key = name.toLowerCase();
+    if (key === OTHER_SERVICE.toLowerCase()) return fail(`"${OTHER_SERVICE}" is always shown, so it can't be added here.`);
+    if (seen.has(key)) return fail(`"${name}" is in the list twice.`);
+    seen.add(key);
+    value.push({ name, price, note });
+  }
+  return { ok: true, value };
+}
+
 export function phoneDigits(phone) {
   return String(phone).replace(/\D/g, '');
 }
 
-export function validateBooking(input) {
+export function validateBooking(input, serviceNames) {
   const b = input || {};
   const str = (v) => (typeof v === 'string' ? v.trim() : '');
   const v = {
@@ -193,7 +222,7 @@ export function validateBooking(input) {
   const digits = phoneDigits(v.phone).length;
   if (!/^[0-9\s\-+().]+$/.test(v.phone) || digits < 7 || digits > 15) return fail('Please enter a phone number we can call, like 555-123-4567.');
   if (v.car.length < 1 || v.car.length > 80) return fail('Please tell us your car, like "2015 Honda Civic".');
-  if (!SERVICES.includes(v.service)) return fail('Please choose what you need.');
+  if (!serviceNames.includes(v.service)) return fail('Please choose what you need.');
   if (v.note.length > 500) return fail('Your note is too long. Please keep it under 500 letters.');
   return { ok: true, value: v };
 }

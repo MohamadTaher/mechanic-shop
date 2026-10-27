@@ -42,7 +42,9 @@ as the production branch. Every merge to `main` then deploys by itself.
 
 The owner opens `/admin` and logs in with the password. From there he can see and cancel
 appointments, set the opening days and hours, mark days off, and change the shop's name,
-phone number and address. He can also change his own password under "Shop details".
+phone number, email and address. The Prices tab lets him add, edit and remove the
+services and prices shown on the site and offered when booking ("Something else" is always
+offered). He can also change his own password under "Shop details".
 Once he has, his password is the only one that works and every other device is logged out.
 
 Until then, the `ADMIN_PASSWORD` secret is the password. If the owner forgets his own,

@@ -45,6 +45,7 @@
         <button type="button" class="tab" role="tab" id="tab-appts" aria-controls="panel-appts" aria-selected="true">Appointments</button>
         <button type="button" class="tab" role="tab" id="tab-hours" aria-controls="panel-hours" aria-selected="false">Opening hours</button>
         <button type="button" class="tab" role="tab" id="tab-off" aria-controls="panel-off" aria-selected="false">Days off</button>
+        <button type="button" class="tab" role="tab" id="tab-prices" aria-controls="panel-prices" aria-selected="false">Prices</button>
         <button type="button" class="tab" role="tab" id="tab-shop" aria-controls="panel-shop" aria-selected="false">Shop details</button>
       </div>
 
@@ -113,6 +114,18 @@
         <div id="off-list"></div>
       </section>
 
+      <section id="panel-prices" role="tabpanel" aria-labelledby="tab-prices" hidden>
+        <h1>Prices</h1>
+        <p class="muted">These show on the prices page and next to "What do you need?" when people book.
+          "Something else" is always shown at the end, so you don't need to add it.</p>
+        <form id="prices-form" novalidate>
+          <div id="price-items"></div>
+          <button type="button" class="btn btn-ghost btn-block" id="add-item">+ Add an item</button>
+          <p class="notice info" style="margin-top:18px">Changes show on the website after you press Save.</p>
+          <button type="submit" class="btn btn-big btn-block">Save prices</button>
+        </form>
+      </section>
+
       <section id="panel-shop" role="tabpanel" aria-labelledby="tab-shop" hidden>
         <h1>Shop details</h1>
         <p class="muted">This is what customers see on the booking page.</p>
@@ -122,8 +135,14 @@
             <input type="text" id="shop-name" maxlength="80" required>
           </div>
           <div class="field">
-            <label for="shop-phone">Phone number</label>
+            <label for="shop-email">Email</label>
+            <input type="email" id="shop-email" maxlength="100" autocomplete="off" inputmode="email">
+            <p class="hint-below">Customers use this to contact you.</p>
+          </div>
+          <div class="field">
+            <label for="shop-phone">Phone number <span class="hint">(optional)</span></label>
             <input type="tel" id="shop-phone" maxlength="40" autocomplete="off">
+            <p class="hint-below">Leave this empty if you don't want phone calls. It won't be shown.</p>
           </div>
           <div class="field">
             <label for="shop-address">Address</label>

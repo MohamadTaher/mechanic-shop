@@ -1,6 +1,6 @@
 import {
-  DEFAULT_SCHEDULE, addDays, buildAvailability, isBookableSlot, isValidDate,
-  nowInZone, phoneDigits, toMinutes, validateBooking, validateSettings,
+  DEFAULT_SCHEDULE, DEFAULT_SERVICES, OTHER_SERVICE, addDays, buildAvailability, isBookableSlot, isValidDate,
+  nowInZone, phoneDigits, toMinutes, validateBooking, validateServices, validateSettings,
 } from './schedule.js';
 import {
   clearCookie, hashPassword, makeSessionValue, readCookie, safeEqual, sessionCookie, verifyPassword,
@@ -8,7 +8,7 @@ import {
 } from './auth.js';
 
 const MAX_FUTURE_PER_PHONE = 3;
-const DEFAULT_SHOP = { name: 'Mechanic Shop', phone: '', address: '', about: '' };
+const DEFAULT_SHOP = { name: 'Mechanic Shop', phone: '', email: '', address: '', about: '' };
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -38,6 +38,17 @@ async function loadSettings(env) {
   return { schedule, shop };
 }
 
+async function loadServices(env) {
+  const row = await env.DB.prepare("SELECT value FROM settings WHERE key = 'services'").first();
+  if (!row) return DEFAULT_SERVICES;
+  try {
+    const checked = validateServices(JSON.parse(row.value));
+    return checked.ok ? checked.value : DEFAULT_SERVICES;
+  } catch {
+    return DEFAULT_SERVICES;
+  }
+}
+
 async function loadClosedDates(env, fromDate) {
   const { results } = await env.DB.prepare('SELECT date, reason FROM closed_dates WHERE date >= ? ORDER BY date').bind(fromDate).all();
   return results;
@@ -47,7 +58,8 @@ async function loadClosedDates(env, fromDate) {
 
 async function handleInfo(env) {
   const { schedule, shop } = await loadSettings(env);
-  return json({ shop, week: schedule.week, slotMinutes: schedule.slotMinutes });
+  const services = await loadServices(env);
+  return json({ shop, week: schedule.week, slotMinutes: schedule.slotMinutes, services });
 }
 
 async function handleAvailability(env) {
@@ -67,7 +79,8 @@ async function handleBook(request, env) {
     // Honeypot: pretend it worked, store nothing.
     return json({ id: 0, date: String(body.date || ''), time: String(body.time || '') }, 201);
   }
-  const checked = validateBooking(body);
+  const serviceNames = [...(await loadServices(env)).map((x) => x.name), OTHER_SERVICE];
+  const checked = validateBooking(body, serviceNames);
   if (!checked.ok) return fail(400, checked.error);
   const b = checked.value;
 
@@ -205,6 +218,16 @@ async function handleAdmin(request, env, url, path) {
       env.DB.prepare("INSERT INTO settings (key, value) VALUES ('shop', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(JSON.stringify(shop)),
     ]);
     return json({ schedule, shop });
+  }
+
+  if (path === '/api/admin/services' && method === 'GET') return json({ services: await loadServices(env) });
+
+  if (path === '/api/admin/services' && method === 'PUT') {
+    const checked = validateServices((await readJson(request)).services);
+    if (!checked.ok) return fail(400, checked.error);
+    await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('services', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .bind(JSON.stringify(checked.value)).run();
+    return json({ services: checked.value });
   }
 
   if (path === '/api/admin/closed-dates' && method === 'GET') return json({ days: await loadClosedDates(env, now.date) });

@@ -18,10 +18,13 @@
         <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#c2410c"/><path fill="#fff" d="M17.5 4a4.5 4.5 0 0 0-4.2 6.1L5.2 18.2a1.6 1.6 0 0 0 2.3 2.3l8.1-8.1A4.5 4.5 0 0 0 21.5 8.5l-2.8 2.8-2-.5-.5-2 2.8-2.8A4.5 4.5 0 0 0 17.5 4z"/></svg>
         <span id="shop-name">Mechanic Shop</span>
       </a>
+      <div class="head-actions">
+      <a class="head-link" href="/prices">Prices</a>
       <a class="btn btn-light btn-small call-top" id="call-top" href="#" hidden>
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z"/></svg>
         <span class="call-word">Call</span><span class="call-num" id="call-top-num"></span>
       </a>
+      </div>
     </div>
   </header>
 
@@ -30,8 +33,11 @@
       <div class="wrap">
         <h1>Book your car in &mdash; it takes 1 minute.</h1>
         <p id="about">Honest, friendly car repair.</p>
-        <a class="btn btn-big" href="#book" id="hero-btn">Book an appointment</a>
-        <p class="hero-call" id="hero-call" hidden>Rather talk to someone? Call <a id="hero-call-link" href="#"></a></p>
+        <div class="hero-actions">
+          <a class="btn btn-big" href="#book" id="hero-btn">Book an appointment</a>
+          <a class="btn btn-big btn-outline-light" href="/prices">See our prices</a>
+        </div>
+        <p class="hero-call" id="hero-call" hidden></p>
       </div>
     </div>
 
@@ -123,7 +129,7 @@
               <p id="done-address"></p>
               <a class="btn btn-ghost" id="done-map" href="#" target="_blank" rel="noopener">Get directions</a>
             </div>
-            <p id="done-call">Need to change or cancel? Call us.</p>
+            <p id="done-call">Need to change or cancel? Please contact the shop.</p>
             <button type="button" class="btn btn-ghost btn-block" id="again">Book another</button>
           </div>
         </div>

@@ -104,7 +104,7 @@ async function showApp() {
   say('');
   // Appointments first: the days-off list uses them to warn about customers still booked.
   await loadAppointments();
-  await Promise.all([loadSettings(), loadClosed()]);
+  await Promise.all([loadSettings(), loadClosed(), loadServices()]);
 }
 
 $('login-form').addEventListener('submit', async (e) => {
@@ -137,7 +137,7 @@ $('logout').addEventListener('click', async () => {
 
 // ---------- tabs ----------
 
-const TABS = ['appts', 'hours', 'off', 'shop'];
+const TABS = ['appts', 'hours', 'off', 'prices', 'shop'];
 function selectTab(name) {
   for (const t of TABS) {
     $('tab-' + t).setAttribute('aria-selected', String(t === name));
@@ -290,6 +290,7 @@ function fillSettings() {
   $('minNoticeHours').value = schedule.minNoticeHours;
   slotHint();
   $('shop-name').value = shop.name;
+  $('shop-email').value = shop.email || '';
   $('shop-phone').value = shop.phone;
   $('shop-address').value = shop.address;
   $('shop-about').value = shop.about;
@@ -331,6 +332,7 @@ $('shop-form').addEventListener('submit', guard(async (e) => {
   e.preventDefault();
   const shop = {
     name: $('shop-name').value,
+    email: $('shop-email').value,
     phone: $('shop-phone').value,
     address: $('shop-address').value,
     about: $('shop-about').value,
@@ -350,6 +352,82 @@ $('pw-form').addEventListener('submit', guard(async (e) => {
   await api('/api/admin/password', { method: 'POST', body: { current: $('pw-current').value, next } });
   for (const id of ['pw-current', 'pw-new', 'pw-new2']) $(id).value = '';
   say('Password changed. Use the new one next time you log in.');
+}));
+
+// ---------- prices ----------
+// The list is edited on the page and only sent to the server when the owner presses Save.
+
+let services = [];
+
+async function loadServices() {
+  ({ services } = await api('/api/admin/services'));
+  renderServices();
+}
+
+// Copy what is typed in the boxes back into the list (before moving or removing rows).
+function readServices() {
+  services = [...document.querySelectorAll('.price-item')].map((card) => ({
+    name: card.querySelector('[data-k=name]').value,
+    price: card.querySelector('[data-k=price]').value,
+    note: card.querySelector('[data-k=note]').value,
+  }));
+}
+
+function renderServices(focusIndex) {
+  const box = $('price-items');
+  box.replaceChildren();
+  services.forEach((s, i) => {
+    const id = (k) => `svc-${k}-${i}`;
+    const input = (k, value, extra = {}) => el('input', { type: 'text', id: id(k), 'data-k': k, value: value || '', ...extra });
+    const field = (k, label, value, extra, hint) => el('div', { class: 'field' },
+      el('label', { for: id(k) }, document.createTextNode(label + ' '), hint ? el('span', { class: 'hint', text: hint }) : ''),
+      input(k, value, extra));
+
+    const up = el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '↑ Up', disabled: i === 0 });
+    const down = el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '↓ Down', disabled: i === services.length - 1 });
+    const remove = el('button', { type: 'button', class: 'btn btn-danger btn-small', text: 'Remove' });
+    const label = s.name ? `"${s.name}"` : `item ${i + 1}`;
+    up.setAttribute('aria-label', `Move ${label} up`);
+    down.setAttribute('aria-label', `Move ${label} down`);
+    remove.setAttribute('aria-label', `Remove ${label}`);
+    up.addEventListener('click', () => { readServices(); [services[i - 1], services[i]] = [services[i], services[i - 1]]; renderServices(); });
+    down.addEventListener('click', () => { readServices(); [services[i + 1], services[i]] = [services[i], services[i + 1]]; renderServices(); });
+    remove.addEventListener('click', () => {
+      readServices();
+      if (services.length === 1) { say('Please keep at least one item.', 'bad'); return; }
+      services.splice(i, 1);
+      renderServices();
+      say(`Removed. Press "Save prices" to update the website.`, 'warn');
+    });
+
+    box.append(el('div', { class: 'card price-item' },
+      el('p', { class: 'item-num', text: `Item ${i + 1}` }),
+      el('div', { class: 'row2' },
+        field('name', 'What it is', s.name, { maxlength: 60, placeholder: 'e.g. Oil change' }),
+        field('price', 'Price', s.price, { maxlength: 30, placeholder: 'e.g. $80 or From $120' })),
+      field('note', 'Short description', s.note, { maxlength: 120, placeholder: 'e.g. Synthetic oil and a new filter.' }, '(optional)'),
+      el('div', { class: 'item-tools' }, up, down, remove)));
+  });
+  if (focusIndex !== undefined) {
+    const first = $(`svc-name-${focusIndex}`);
+    first.scrollIntoView({ block: 'center' });
+    first.focus({ preventScroll: true });
+  }
+}
+
+$('add-item').addEventListener('click', () => {
+  readServices();
+  if (services.length >= 30) { say('You can have up to 30 items.', 'bad'); return; }
+  services.push({ name: '', price: '', note: '' });
+  renderServices(services.length - 1);
+});
+
+$('prices-form').addEventListener('submit', guard(async (e) => {
+  e.preventDefault();
+  readServices();
+  ({ services } = await api('/api/admin/services', { method: 'PUT', body: { services } }));
+  renderServices();
+  say('Prices saved ✓');
 }));
 
 // ---------- days off ----------

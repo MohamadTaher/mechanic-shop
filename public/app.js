@@ -1,30 +1,12 @@
 // Customer booking page. All text from the server is put on the page with textContent only.
 
-const SERVICES = [
-  'Oil change',
-  'Brakes',
-  'Check engine light / diagnostics',
-  'Tires',
-  'Battery',
-  'Something else',
-];
+import {
+  $, el, api, time12, telHref, mapHref, contactWays, renderChrome, OTHER_SERVICE,
+} from '/common.js';
+
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 // Show this many week groups before the "Show later dates" button.
 const WEEKS_SHOWN_FIRST = 2;
-
-const $ = (id) => document.getElementById(id);
-
-function el(tag, props = {}, ...kids) {
-  const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(props)) {
-    if (k === 'class') node.className = v;
-    else if (k === 'text') node.textContent = v;
-    else if (v === true) node.setAttribute(k, '');
-    else if (v !== false && v != null) node.setAttribute(k, v);
-  }
-  for (const kid of kids) node.append(kid);
-  return node;
-}
 
 const state = { info: null, days: [], day: null, time: null, step: 1, booked: null, showAllDays: false };
 
@@ -44,14 +26,6 @@ const shortDow = fmt({ weekday: 'short' });
 const shortDate = fmt({ month: 'short', day: 'numeric' });
 const longDate = fmt({ weekday: 'long', month: 'long', day: 'numeric' });
 
-function time12(hhmm) {
-  const [h, m] = hhmm.split(':').map(Number);
-  const suffix = h >= 12 ? 'PM' : 'AM';
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${suffix}`;
-}
-
-const telHref = (phone) => 'tel:' + phone.replace(/[^\d+]/g, '');
-const mapHref = (address) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address);
 
 function setStatus(text, kind) {
   const box = $('status');
@@ -59,39 +33,24 @@ function setStatus(text, kind) {
   if (text) box.append(el('p', { class: 'notice ' + (kind || 'info'), text }));
 }
 
-async function api(path, options) {
-  const res = await fetch(path, options);
-  let data = {};
-  try { data = await res.json(); } catch { /* not JSON */ }
-  if (!res.ok) {
-    const err = new Error(data.error || 'Something went wrong. Please try again.');
-    err.status = res.status;
-    throw err;
-  }
-  return data;
-}
-
 // ---------- page chrome ----------
 
 function renderInfo(info) {
   const { shop, week } = info;
   document.title = `Book an appointment - ${shop.name}`;
-  $('shop-name').textContent = shop.name;
-  $('foot-name').textContent = shop.name;
+  renderChrome(shop);
   $('about').textContent = shop.about || '';
   $('about').hidden = !shop.about;
-  $('year').textContent = new Date().getFullYear();
 
   const phone = (shop.phone || '').trim();
-  $('call-top').hidden = !phone;
-  $('hero-call').hidden = !phone;
-  if (phone) {
-    $('call-top').href = telHref(phone);
-    $('call-top').setAttribute('aria-label', `Call us at ${phone}`);
-    $('call-top-num').textContent = phone;
-    $('hero-call-link').href = telHref(phone);
-    $('hero-call-link').textContent = phone;
-  }
+  const email = (shop.email || '').trim();
+  const ways = contactWays(shop, true);
+  const heroCall = $('hero-call');
+  heroCall.replaceChildren();
+  heroCall.hidden = !ways;
+  if (ways) heroCall.append('Questions? ', ...ways);
+
+  buildServices(info.services || []);
 
   // Highlight today's row, using the shop's own idea of "today".
   const todayIdx = state.days.length ? state.days[0].weekday : -1;
@@ -113,6 +72,7 @@ function renderInfo(info) {
     contact.append(el('p', {}, el('a', { href: mapHref(shop.address), target: '_blank', rel: 'noopener', text: 'Get directions' })));
   }
   if (phone) contact.append(el('p', {}, el('strong', { text: 'Call us: ' }), el('a', { href: telHref(phone), text: phone })));
+  if (email) contact.append(el('p', {}, el('strong', { text: 'Email us: ' }), el('a', { href: 'mailto:' + email, text: email })));
 }
 
 // ---------- steps ----------
@@ -365,9 +325,9 @@ function showDone() {
 
   const call = $('done-call');
   call.replaceChildren();
-  const phone = (shop.phone || '').trim();
-  if (phone) call.append('Need to change or cancel? Call us at ', el('a', { href: telHref(phone), text: phone }), '.');
-  else call.append('Need to change or cancel? Please call the shop.');
+  const ways = contactWays(shop);
+  if (ways) call.append('Need to change or cancel? Please ', ...ways, '.');
+  else call.append('Need to change or cancel? Please contact the shop.');
 
   $('step3').reset();
   go(4);
@@ -411,16 +371,21 @@ async function refresh(showSpinner = true) {
   }
 }
 
-function buildServices() {
+// "What do you need?" choices, with prices. Keeps the customer's pick if the list is rebuilt.
+function buildServices(services) {
   const box = $('services');
-  SERVICES.forEach((name, i) => {
-    box.append(el('label', { class: 'choice' },
-      el('input', { type: 'radio', name: 'service', value: name, id: 'svc' + i }),
-      el('span', { text: name })));
+  const picked = box.querySelector('input:checked')?.value;
+  box.replaceChildren();
+  const all = [...services, { name: OTHER_SERVICE, price: 'Ask us', note: 'Tell us about it in the box below.' }];
+  all.forEach((s, i) => {
+    const input = el('input', { type: 'radio', name: 'service', value: s.name, id: 'svc' + i });
+    if (s.name === picked) input.checked = true;
+    const text = el('span', { class: 'choice-text' }, el('span', { class: 'choice-name', text: s.name }));
+    if (s.note) text.append(el('span', { class: 'choice-note', text: s.note }));
+    box.append(el('label', { class: 'choice' }, input, text, el('span', { class: 'choice-price', text: s.price })));
   });
 }
 
-buildServices();
 history.replaceState({ step: 1 }, '');
 $('retry').addEventListener('click', () => refresh());
 $('back').addEventListener('click', () => history.back());
