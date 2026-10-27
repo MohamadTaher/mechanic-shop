@@ -200,7 +200,10 @@ legend { font-weight: 700; padding: 0; margin-bottom: 8px; color: var(--navy); }
 }
 .choice input { width: 24px; height: 24px; flex: none; accent-color: var(--accent); margin: 0; }
 .choice-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.choice-note { font-weight: 400; font-size: .92rem; color: var(--muted); }
+.choice-note {
+  font-weight: 400; font-size: .92rem; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 .choice-price { flex: none; font-weight: 700; color: var(--navy); text-align: right; max-width: 40%; }
 .choice:has(input:checked) { border-color: var(--accent); background: #fff8f4; }
 .choice:has(input:focus-visible) { outline: 3px solid #1d6fdc; outline-offset: 2px; }
@@ -245,14 +248,18 @@ legend { font-weight: 700; padding: 0; margin-bottom: 8px; color: var(--navy); }
 
 /* ----- prices page ----- */
 .price-list { list-style: none; margin: 20px 0 28px; padding: 0; }
-.price-row {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
-  padding: 16px 0; border-bottom: 1px solid var(--line);
-}
+.price-row { padding: 18px 0; border-bottom: 1px solid var(--line); }
+.price-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .price-row:last-child { border-bottom: 0; }
 .price-what { min-width: 0; }
 .price-name { font-size: 1.15rem; margin: 0 0 4px; }
-.price-note { margin: 0; color: var(--muted); }
+.price-note { margin: 0; color: var(--muted); white-space: pre-line; }
+.legend-hint { margin: -2px 0 12px; }
+.price-table { width: 100%; margin-top: 12px; border-collapse: collapse; background: var(--soft); border-radius: 12px; overflow: hidden; }
+.price-table th, .price-table td { padding: 10px 14px; text-align: left; vertical-align: top; border-top: 2px solid #fff; }
+.price-table tr:first-child th, .price-table tr:first-child td { border-top: 0; }
+.price-table th { font-weight: 500; color: var(--ink); }
+.price-table td { font-weight: 800; color: var(--accent-dark); text-align: right; white-space: nowrap; }
 .price-amount { flex: none; font-size: 1.15rem; font-weight: 800; color: var(--accent-dark); text-align: right; max-width: 45%; }
 .price-cta p { margin-top: 14px; }
 
@@ -328,6 +335,21 @@ legend { font-weight: 700; padding: 0; margin-bottom: 8px; color: var(--navy); }
 .price-item .item-tools .btn { flex: 0 0 auto; }
 .price-item .item-tools .btn-danger { margin-left: auto; }
 .item-num { font-weight: 800; color: var(--muted); font-size: .95rem; margin: 0 0 8px; }
+.price-item textarea { min-height: 84px; }
+.opt-box { margin: 0 0 16px; padding: 12px; background: var(--soft); border-radius: 12px; }
+.opt-title { font-weight: 700; color: var(--navy); margin: 0 0 8px; }
+.opt-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; align-items: end;
+  padding: 10px 0; border-bottom: 1px solid var(--line);
+}
+.opt-row .opt-label { grid-column: 1 / -1; }
+.opt-row label { font-size: .9rem; font-weight: 600; margin-bottom: 2px; }
+.opt-row .opt-remove { min-height: 52px; }
+@media (min-width: 560px) {
+  .opt-row { grid-template-columns: 1fr 140px auto; }
+  .opt-row .opt-label { grid-column: auto; }
+}
+.opt-box > .btn { margin-top: 10px; }
 
 /* ----- pop-up message (admin) ----- */
 .toast-wrap {

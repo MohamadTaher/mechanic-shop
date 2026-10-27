@@ -356,7 +356,9 @@ $('pw-form').addEventListener('submit', guard(async (e) => {
 
 // ---------- prices ----------
 // The list is edited on the page and only sent to the server when the owner presses Save.
+// Each item can have optional "price lines", e.g. different prices for different rim sizes.
 
+const MAX_LINES = 15;
 let services = [];
 
 async function loadServices() {
@@ -364,13 +366,52 @@ async function loadServices() {
   renderServices();
 }
 
-// Copy what is typed in the boxes back into the list (before moving or removing rows).
+// Copy what is typed in the boxes back into the list (before moving or removing anything).
 function readServices() {
   services = [...document.querySelectorAll('.price-item')].map((card) => ({
     name: card.querySelector('[data-k=name]').value,
     price: card.querySelector('[data-k=price]').value,
     note: card.querySelector('[data-k=note]').value,
+    options: [...card.querySelectorAll('.opt-row')].map((row) => ({
+      label: row.querySelector('[data-k=label]').value,
+      price: row.querySelector('[data-k=oprice]').value,
+    })),
   }));
+}
+
+function optionRows(s, i) {
+  const wrap = el('div', { class: 'opt-list' });
+  (s.options || []).forEach((o, j) => {
+    const lid = `opt-label-${i}-${j}`;
+    const pid = `opt-price-${i}-${j}`;
+    const remove = el('button', { type: 'button', class: 'btn btn-ghost btn-small opt-remove', text: 'Remove' });
+    remove.setAttribute('aria-label', `Remove price line ${j + 1}`);
+    remove.addEventListener('click', () => {
+      readServices();
+      services[i].options.splice(j, 1);
+      renderServices();
+    });
+    wrap.append(el('div', { class: 'opt-row' },
+      el('div', { class: 'opt-label' },
+        el('label', { for: lid, text: 'For' }),
+        el('input', { type: 'text', id: lid, 'data-k': 'label', value: o.label || '', maxlength: 80, placeholder: 'e.g. Sedan, 19" to 21" rims' })),
+      el('div', { class: 'opt-price' },
+        el('label', { for: pid, text: 'Price' }),
+        el('input', { type: 'text', id: pid, 'data-k': 'oprice', value: o.price || '', maxlength: 30, placeholder: 'e.g. $25 a tire' })),
+      remove));
+  });
+  const add = el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '+ Add a price line' });
+  add.addEventListener('click', () => {
+    readServices();
+    const opts = services[i].options;
+    if (opts.length >= MAX_LINES) { say(`Up to ${MAX_LINES} price lines per item.`, 'bad'); return; }
+    opts.push({ label: '', price: '' });
+    renderServices();
+    $(`opt-label-${i}-${opts.length - 1}`).focus();
+  });
+  return el('div', { class: 'opt-box' },
+    el('p', { class: 'opt-title' }, document.createTextNode('Different prices '), el('span', { class: 'hint', text: '(optional, e.g. by rim size)' })),
+    wrap, add);
 }
 
 function renderServices(focusIndex) {
@@ -378,14 +419,9 @@ function renderServices(focusIndex) {
   box.replaceChildren();
   services.forEach((s, i) => {
     const id = (k) => `svc-${k}-${i}`;
-    const input = (k, value, extra = {}) => el('input', { type: 'text', id: id(k), 'data-k': k, value: value || '', ...extra });
-    const field = (k, label, value, extra, hint) => el('div', { class: 'field' },
-      el('label', { for: id(k) }, document.createTextNode(label + ' '), hint ? el('span', { class: 'hint', text: hint }) : ''),
-      input(k, value, extra));
-
     const up = el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '↑ Up', disabled: i === 0 });
     const down = el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '↓ Down', disabled: i === services.length - 1 });
-    const remove = el('button', { type: 'button', class: 'btn btn-danger btn-small', text: 'Remove' });
+    const remove = el('button', { type: 'button', class: 'btn btn-danger btn-small', text: 'Remove item' });
     const label = s.name ? `"${s.name}"` : `item ${i + 1}`;
     up.setAttribute('aria-label', `Move ${label} up`);
     down.setAttribute('aria-label', `Move ${label} down`);
@@ -395,17 +431,28 @@ function renderServices(focusIndex) {
     remove.addEventListener('click', () => {
       readServices();
       if (services.length === 1) { say('Please keep at least one item.', 'bad'); return; }
+      if (!confirm(`Remove ${label} from the price list?`)) return;
       services.splice(i, 1);
       renderServices();
-      say(`Removed. Press "Save prices" to update the website.`, 'warn');
+      say('Removed. Press "Save prices" to update the website.', 'warn');
     });
+
+    const note = el('textarea', { id: id('note'), 'data-k': 'note', maxlength: 300, rows: 3, placeholder: 'e.g. Price is per tire and includes balancing.' });
+    note.value = s.note || '';
 
     box.append(el('div', { class: 'card price-item' },
       el('p', { class: 'item-num', text: `Item ${i + 1}` }),
       el('div', { class: 'row2' },
-        field('name', 'What it is', s.name, { maxlength: 60, placeholder: 'e.g. Oil change' }),
-        field('price', 'Price', s.price, { maxlength: 30, placeholder: 'e.g. $80 or From $120' })),
-      field('note', 'Short description', s.note, { maxlength: 120, placeholder: 'e.g. Synthetic oil and a new filter.' }, '(optional)'),
+        el('div', { class: 'field' },
+          el('label', { for: id('name'), text: 'What it is' }),
+          el('input', { type: 'text', id: id('name'), 'data-k': 'name', value: s.name || '', maxlength: 60, placeholder: 'e.g. Tire change and balance' })),
+        el('div', { class: 'field' },
+          el('label', { for: id('price'), text: 'Main price' }),
+          el('input', { type: 'text', id: id('price'), 'data-k': 'price', value: s.price || '', maxlength: 30, placeholder: 'e.g. $90 an hour' }))),
+      el('div', { class: 'field' },
+        el('label', { for: id('note') }, document.createTextNode('Description '), el('span', { class: 'hint', text: '(optional)' })),
+        note),
+      optionRows(s, i),
       el('div', { class: 'item-tools' }, up, down, remove)));
   });
   if (focusIndex !== undefined) {
@@ -418,7 +465,7 @@ function renderServices(focusIndex) {
 $('add-item').addEventListener('click', () => {
   readServices();
   if (services.length >= 30) { say('You can have up to 30 items.', 'bad'); return; }
-  services.push({ name: '', price: '', note: '' });
+  services.push({ name: '', price: '', note: '', options: [] });
   renderServices(services.length - 1);
 });
 

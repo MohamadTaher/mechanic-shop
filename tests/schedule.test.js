@@ -225,7 +225,7 @@ test('services: defaults are valid', () => {
 test('services: good list is trimmed', () => {
   const r = validateServices([{ name: ' Oil ', price: ' $5 ', note: ' hi ' }, { name: 'Tires', price: '$1' }]);
   assert.equal(r.ok, true);
-  assert.deepEqual(r.value, [{ name: 'Oil', price: '$5', note: 'hi' }, { name: 'Tires', price: '$1', note: '' }]);
+  assert.deepEqual(r.value, [{ name: 'Oil', price: '$5', note: 'hi', options: [] }, { name: 'Tires', price: '$1', note: '', options: [] }]);
 });
 
 test('services: empty list and 31 items rejected', () => {
@@ -244,8 +244,34 @@ test('services: missing name or price, long fields', () => {
   assert.equal(r.error, 'Item 3: please enter a name.');
   assert.equal(validateServices([{ name: 'x'.repeat(61), price: '$1' }]).ok, false);
   assert.equal(validateServices([{ name: 'A', price: 'x'.repeat(31) }]).ok, false);
-  assert.equal(validateServices([{ name: 'A', price: '$1', note: 'x'.repeat(121) }]).ok, false);
-  assert.equal(validateServices([{ name: 'A', price: '$1', note: 'x'.repeat(120) }]).ok, true);
+  assert.equal(validateServices([{ name: 'A', price: '$1', note: 'x'.repeat(301) }]).error, 'Item 1: the description is too long (up to 300 letters).');
+  assert.equal(validateServices([{ name: 'A', price: '$1', note: 'x'.repeat(300) }]).ok, true);
+});
+
+test('services: options trimmed, blank rows dropped, missing -> []', () => {
+  const r = validateServices([
+    { name: 'A', price: '$1', options: [{ label: ' Small ', price: ' $5 ' }, { label: ' ', price: '' }, { label: 'Big', price: '$9' }] },
+    { name: 'B', price: '$1' },
+  ]);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value[0].options, [{ label: 'Small', price: '$5' }, { label: 'Big', price: '$9' }]);
+  assert.deepEqual(r.value[1].options, []);
+});
+
+test('services: option limits and errors', () => {
+  const rows = (n) => Array.from({ length: n }, (_, i) => ({ label: 'l' + i, price: '$1' }));
+  assert.equal(validateServices([{ name: 'A', price: '$1', options: rows(15) }]).ok, true);
+  assert.equal(validateServices([{ name: 'A', price: '$1', options: rows(16) }]).error, 'Item 1: up to 15 price lines.');
+  assert.equal(validateServices([{ name: 'A', price: '$1', options: [{ label: 'x', price: '' }] }]).error, 'Item 1, line 1: please enter a price.');
+  assert.equal(validateServices([{ name: 'A', price: '$1', options: [{ label: '', price: '$2' }] }]).error, 'Item 1, line 1: please enter what this price is for.');
+  assert.equal(validateServices([{ name: 'A', price: '$1', options: [{ label: 'x'.repeat(81), price: '$2' }] }]).error, 'Item 1, line 1: that is too long.');
+  assert.equal(validateServices([{ name: 'A', price: '$1', options: [{ label: 'x', price: 'y'.repeat(31) }] }]).error, 'Item 1, line 1: that is too long.');
+  assert.equal(validateServices([{ name: 'A', price: '$1', options: 'x' }]).error, 'Item 1: the price lines are not valid.');
+});
+
+test('services: note keeps line breaks, collapses blank runs', () => {
+  const r = validateServices([{ name: 'A', price: '$1', note: 'one  \r\ntwo\n\n\n\nthree' }]);
+  assert.equal(r.value[0].note, 'one\ntwo\n\nthree');
 });
 
 test('services: duplicate names (case-insensitive) rejected', () => {

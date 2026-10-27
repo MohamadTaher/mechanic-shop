@@ -12,7 +12,18 @@ function render(info) {
   for (const s of all) {
     const left = el('div', { class: 'price-what' }, el('h2', { class: 'price-name', text: s.name }));
     if (s.note) left.append(el('p', { class: 'price-note', text: s.note }));
-    list.append(el('li', { class: 'price-row' }, left, el('div', { class: 'price-amount', text: s.price })));
+    const row = el('li', { class: 'price-row' },
+      el('div', { class: 'price-head' }, left, el('div', { class: 'price-amount', text: s.price })));
+    const opts = (s.options || []).filter((o) => o.label || o.price);
+    if (opts.length) {
+      const table = el('table', { class: 'price-table' });
+      table.append(el('caption', { class: 'sr-only', text: `${s.name} prices` }));
+      const body = el('tbody');
+      for (const o of opts) body.append(el('tr', {}, el('th', { scope: 'row', text: o.label }), el('td', { text: o.price })));
+      table.append(body);
+      row.append(table);
+    }
+    list.append(row);
   }
   list.hidden = false;
 

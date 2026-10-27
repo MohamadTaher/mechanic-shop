@@ -186,22 +186,36 @@ export function validateServices(list) {
   if (list.length < 1) return fail('Please keep at least one item.');
   if (list.length > 30) return fail('Please keep the list to 30 items or fewer.');
   const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const noteText = (v) => (typeof v === 'string' ? v.replace(/\r\n?/g, '\n').split('\n').map((l) => l.trimEnd()).join('\n').replace(/\n{3,}/g, '\n\n').trim() : '');
   const seen = new Set();
   const value = [];
   for (let i = 0; i < list.length; i++) {
     const it = list[i] && typeof list[i] === 'object' ? list[i] : {};
     const label = `Item ${i + 1}`;
-    const name = str(it.name), price = str(it.price), note = str(it.note);
+    const name = str(it.name), price = str(it.price), note = noteText(it.note);
     if (!name) return fail(`${label}: please enter a name.`);
     if (name.length > 60) return fail(`${label}: the name is too long (up to 60 letters).`);
     if (!price) return fail(`${label}: please enter a price, like "$80" or "From $120".`);
     if (price.length > 30) return fail(`${label}: the price is too long (up to 30 letters).`);
-    if (note.length > 120) return fail(`${label}: the note is too long (up to 120 letters).`);
+    if (note.length > 300) return fail(`${label}: the description is too long (up to 300 letters).`);
+    if (it.options !== undefined && !Array.isArray(it.options)) return fail(`${label}: the price lines are not valid.`);
+    const options = [];
+    for (const [j, row] of (it.options || []).entries()) {
+      const r = row && typeof row === 'object' ? row : {};
+      const optLabel = str(r.label), optPrice = str(r.price);
+      if (!optLabel && !optPrice) continue;
+      const at = `${label}, line ${j + 1}`;
+      if (!optLabel) return fail(`${at}: please enter what this price is for.`);
+      if (!optPrice) return fail(`${at}: please enter a price.`);
+      if (optLabel.length > 80 || optPrice.length > 30) return fail(`${at}: that is too long.`);
+      options.push({ label: optLabel, price: optPrice });
+    }
+    if (options.length > 15) return fail(`${label}: up to 15 price lines.`);
     const key = name.toLowerCase();
     if (key === OTHER_SERVICE.toLowerCase()) return fail(`"${OTHER_SERVICE}" is always shown, so it can't be added here.`);
     if (seen.has(key)) return fail(`"${name}" is in the list twice.`);
     seen.add(key);
-    value.push({ name, price, note });
+    value.push({ name, price, note, options });
   }
   return { ok: true, value };
 }
