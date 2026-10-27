@@ -72,7 +72,8 @@ async function api(path, options = {}) {
   }
   let data = {};
   try { data = await res.json(); } catch { /* not JSON */ }
-  if (res.status === 401 && path !== '/api/admin/login') {
+  // A wrong password on login or on "Change password" is not the same as being logged out.
+  if (res.status === 401 && path !== '/api/admin/login' && path !== '/api/admin/password') {
     showLogin();
     throw new Error('Please log in again.');
   }
@@ -335,6 +336,20 @@ $('shop-form').addEventListener('submit', guard(async (e) => {
     about: $('shop-about').value,
   };
   await saveSettings({ schedule: state.settings.schedule, shop });
+}));
+
+$('pw-show').addEventListener('change', (e) => {
+  for (const id of ['pw-current', 'pw-new', 'pw-new2']) $(id).type = e.target.checked ? 'text' : 'password';
+});
+
+$('pw-form').addEventListener('submit', guard(async (e) => {
+  e.preventDefault();
+  const next = $('pw-new').value;
+  if (next.length < 8) { say('Please use at least 8 characters.', 'bad'); return; }
+  if (next !== $('pw-new2').value) { say("The new passwords don't match.", 'bad'); return; }
+  await api('/api/admin/password', { method: 'POST', body: { current: $('pw-current').value, next } });
+  for (const id of ['pw-current', 'pw-new', 'pw-new2']) $(id).value = '';
+  say('Password changed. Use the new one next time you log in.');
 }));
 
 // ---------- days off ----------

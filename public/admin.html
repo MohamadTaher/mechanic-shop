@@ -34,6 +34,7 @@
         </div>
         <p class="notice bad" id="login-error" role="alert" hidden></p>
         <button type="submit" class="btn btn-big btn-block" id="login-btn">Log in</button>
+        <p class="muted">Forgot your password? Ask the person who set up this website to reset it.</p>
       </form>
       <p><a href="/">Back to the booking page</a></p>
     </section>
@@ -133,6 +134,24 @@
             <textarea id="shop-about" maxlength="500"></textarea>
           </div>
           <button type="submit" class="btn btn-big btn-block">Save changes</button>
+        </form>
+
+        <h2 style="margin-top:28px">Change password</h2>
+        <form id="pw-form" class="card" novalidate>
+          <div class="field">
+            <label for="pw-current">Current password</label>
+            <input type="password" id="pw-current" autocomplete="current-password">
+          </div>
+          <div class="field">
+            <label for="pw-new">New password <span class="hint">(at least 8 characters)</span></label>
+            <input type="password" id="pw-new" autocomplete="new-password" maxlength="200">
+          </div>
+          <div class="field">
+            <label for="pw-new2">New password again</label>
+            <input type="password" id="pw-new2" autocomplete="new-password" maxlength="200">
+            <label class="check-row"><input type="checkbox" id="pw-show"> Show passwords</label>
+          </div>
+          <button type="submit" class="btn btn-block">Change password</button>
         </form>
       </section>
     </div>

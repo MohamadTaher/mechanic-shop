@@ -42,7 +42,18 @@ as the production branch. Every merge to `main` then deploys by itself.
 
 The owner opens `/admin` and logs in with the password. From there he can see and cancel
 appointments, set the opening days and hours, mark days off, and change the shop's name,
-phone number and address. Changing the `ADMIN_PASSWORD` secret logs everyone out.
+phone number and address. He can also change his own password under "Shop details".
+Once he has, his password is the only one that works and every other device is logged out.
+
+Until then, the `ADMIN_PASSWORD` secret is the password. If the owner forgets his own,
+reset it by deleting his saved password, so the secret works again:
+
+```
+npx wrangler d1 execute mechanic-db --remote --command "DELETE FROM settings WHERE key='admin_password'"
+```
+
+Optionally also set a new secret: `npx wrangler secret put ADMIN_PASSWORD`. The owner can then
+log in with it and choose a new password of his own.
 
 ## Branches
 

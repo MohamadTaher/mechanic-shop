@@ -1,5 +1,5 @@
-// Owner login cookie: "<expiry-ms>.<hmac>". The signing key comes from ADMIN_PASSWORD,
-// so changing the password signs everyone out.
+// Owner login cookie: "<expiry-ms>.<hmac>". The signing key comes from the stored password
+// hash (or ADMIN_PASSWORD when none is stored), so changing the password signs everyone out.
 
 const enc = new TextEncoder();
 export const COOKIE_NAME = 'admin';
@@ -30,6 +30,31 @@ export async function safeEqual(a, b) {
   let diff = 0;
   for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
   return diff === 0;
+}
+
+// Owner-chosen password: PBKDF2-SHA-256. 20000 rounds keeps it inside the free plan's 10 ms CPU budget.
+export const PASSWORD_ITERATIONS = 20000;
+
+const fromHex = (hex) => Uint8Array.from(hex.match(/../g), (h) => parseInt(h, 16));
+
+async function pbkdf2(password, salt, iter) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(String(password)), 'PBKDF2', false, ['deriveBits']);
+  return toHex(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: iter }, key, 256));
+}
+
+export async function hashPassword(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return { salt: toHex(salt), iter: PASSWORD_ITERATIONS, hash: await pbkdf2(password, salt, PASSWORD_ITERATIONS) };
+}
+
+export async function verifyPassword(password, row) {
+  if (!row || typeof row !== 'object') return false;
+  const { salt, iter, hash } = row;
+  if (typeof salt !== 'string' || !/^([0-9a-f]{2})+$/.test(salt)) return false;
+  if (typeof hash !== 'string' || !/^[0-9a-f]+$/.test(hash)) return false;
+  if (!Number.isInteger(iter) || iter < 1 || iter > 1000000) return false;
+  if (typeof password !== 'string') return false;
+  return safeEqual(await pbkdf2(password, fromHex(salt), iter), hash);
 }
 
 export async function makeSessionValue(password, now = Date.now()) {

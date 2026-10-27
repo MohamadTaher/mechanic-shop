@@ -3,7 +3,8 @@ import {
   nowInZone, phoneDigits, toMinutes, validateBooking, validateSettings,
 } from './schedule.js';
 import {
-  clearCookie, makeSessionValue, readCookie, safeEqual, sessionCookie, verifySessionValue, COOKIE_NAME,
+  clearCookie, hashPassword, makeSessionValue, readCookie, safeEqual, sessionCookie, verifyPassword,
+  verifySessionValue, COOKIE_NAME,
 } from './auth.js';
 
 const MAX_FUTURE_PER_PHONE = 3;
@@ -108,8 +109,29 @@ async function handleBook(request, env) {
 
 // ---------- admin ----------
 
+// The owner's own password (D1) wins; the ADMIN_PASSWORD secret is only the fallback / reset password.
+async function loadStoredPassword(env) {
+  const row = await env.DB.prepare("SELECT value FROM settings WHERE key = 'admin_password'").first();
+  if (!row) return null;
+  try { return JSON.parse(row.value); } catch { return { bad: true }; }
+}
+
+// Key for the session cookie: changes whenever the password does.
+// A damaged stored row gives no key at all, so no cookie can pass.
+const sessionKey = (stored, env) => {
+  if (!stored) return env.ADMIN_PASSWORD;
+  return typeof stored.hash === 'string' && stored.hash ? stored.hash : null;
+};
+
+async function passwordMatches(candidate, stored, env) {
+  if (typeof candidate !== 'string') return false;
+  if (stored) return verifyPassword(candidate, stored);
+  return safeEqual(candidate, env.ADMIN_PASSWORD);
+}
+
 async function isAdmin(request, env) {
-  return verifySessionValue(env.ADMIN_PASSWORD, readCookie(request, COOKIE_NAME));
+  const stored = await loadStoredPassword(env);
+  return verifySessionValue(sessionKey(stored, env), readCookie(request, COOKIE_NAME));
 }
 
 function sameOrigin(request) {
@@ -118,14 +140,30 @@ function sameOrigin(request) {
 }
 
 async function handleLogin(request, env) {
-  if (!env.ADMIN_PASSWORD) return fail(500, 'Admin password not set up yet.');
+  const stored = await loadStoredPassword(env);
+  if (!stored && !env.ADMIN_PASSWORD) return fail(500, 'Admin password not set up yet.');
   const body = await readJson(request);
-  const ok = typeof body.password === 'string' && (await safeEqual(body.password, env.ADMIN_PASSWORD));
-  if (!ok) {
+  if (!(await passwordMatches(body.password, stored, env))) {
     await new Promise((r) => setTimeout(r, 500));
     return fail(401, "That password didn't work.");
   }
-  return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie(await makeSessionValue(env.ADMIN_PASSWORD)) });
+  return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie(await makeSessionValue(sessionKey(stored, env))) });
+}
+
+async function handlePassword(request, env) {
+  const body = await readJson(request);
+  const stored = await loadStoredPassword(env);
+  if (!(await passwordMatches(body.current, stored, env))) {
+    await new Promise((r) => setTimeout(r, 500));
+    return fail(401, 'Your current password is not right.');
+  }
+  if (typeof body.next !== 'string' || body.next.length < 8 || body.next.length > 200) {
+    return fail(400, 'Please use at least 8 characters.');
+  }
+  const row = await hashPassword(body.next);
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('admin_password', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    .bind(JSON.stringify(row)).run();
+  return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie(await makeSessionValue(row.hash)) });
 }
 
 async function handleAdmin(request, env, url, path) {
@@ -137,6 +175,8 @@ async function handleAdmin(request, env, url, path) {
   if (!(await isAdmin(request, env))) return fail(401, 'Please log in.');
 
   const now = nowInZone(env.TIMEZONE || 'America/New_York');
+
+  if (path === '/api/admin/password' && method === 'POST') return handlePassword(request, env);
 
   if (path === '/api/admin/me' && method === 'GET') return json({ ok: true });
 
