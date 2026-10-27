@@ -1,0 +1,16 @@
+{
+  "name": "mechanic-shop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "node --test tests/",
+    "db:migrate:local": "wrangler d1 migrations apply mechanic-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply mechanic-db --remote",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.153.0"
+  }
+}

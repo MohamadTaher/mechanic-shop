@@ -3,3 +3,4 @@ node_modules/
 .dev.vars
 .claude/scratch/
 .DS_Store
+.claude/launch.json

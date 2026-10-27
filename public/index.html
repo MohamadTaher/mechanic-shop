@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book a car appointment</title>
+  <meta name="description" content="Book your car in online. It takes about a minute.">
+  <meta name="theme-color" content="#14213d">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2314213d'/%3E%3Cpath fill='%23fff' d='M17.5 4a4.5 4.5 0 0 0-4.2 6.1L5.2 18.2a1.6 1.6 0 0 0 2.3 2.3l8.1-8.1A4.5 4.5 0 0 0 21.5 8.5l-2.8 2.8-2-.5-.5-2 2.8-2.8A4.5 4.5 0 0 0 17.5 4z'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip" href="#book">Skip to booking</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/">
+        <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#c2410c"/><path fill="#fff" d="M17.5 4a4.5 4.5 0 0 0-4.2 6.1L5.2 18.2a1.6 1.6 0 0 0 2.3 2.3l8.1-8.1A4.5 4.5 0 0 0 21.5 8.5l-2.8 2.8-2-.5-.5-2 2.8-2.8A4.5 4.5 0 0 0 17.5 4z"/></svg>
+        <span id="shop-name">Mechanic Shop</span>
+      </a>
+      <a class="btn btn-light btn-small" id="call-top" href="#" hidden>Call us: <span id="call-top-num"></span></a>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="hero">
+      <div class="wrap">
+        <h1>Book your car in &mdash; it takes 1 minute.</h1>
+        <p id="about">Honest, friendly car repair.</p>
+        <a class="btn btn-big" href="#book" id="hero-btn">Book an appointment</a>
+      </div>
+    </div>
+
+    <section id="book" aria-labelledby="book-title">
+      <div class="wrap">
+        <h2 id="book-title" class="sr-only">Book an appointment</h2>
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+
+        <div id="loading" class="loading"><span class="spinner" aria-hidden="true"></span>Loading times&hellip;</div>
+
+        <div id="load-error" class="card" hidden>
+          <p class="notice bad">We couldn't load the available times. Please check your internet and try again.</p>
+          <button type="button" class="btn btn-block" id="retry">Try again</button>
+        </div>
+
+        <div id="flow" hidden>
+          <div class="stepper" id="stepper">
+            <p class="step-label" id="step-label">Step 1 of 3</p>
+            <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+          </div>
+          <button type="button" class="back" id="back" hidden>&larr; Back</button>
+
+          <div id="step1" class="step">
+            <h2 tabindex="-1">Pick a day</h2>
+            <div class="days" id="days"></div>
+          </div>
+
+          <div id="step2" class="step" hidden>
+            <h2 tabindex="-1" id="step2-title">Pick a time</h2>
+            <div class="times" id="times"></div>
+            <div id="no-times" hidden>
+              <p class="notice info">There are no free times left on this day. Please go back and pick another day.</p>
+            </div>
+          </div>
+
+          <form id="step3" class="step" hidden novalidate>
+            <h2 tabindex="-1">Your details</h2>
+            <div class="summary" id="summary"></div>
+
+            <div class="field" id="f-name">
+              <label for="name">Your name</label>
+              <input type="text" id="name" name="name" autocomplete="name" maxlength="80" required>
+              <p class="error-text" hidden></p>
+            </div>
+            <div class="field" id="f-phone">
+              <label for="phone">Phone number <span class="hint">(so we can reach you)</span></label>
+              <input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" maxlength="30" required>
+              <p class="error-text" hidden></p>
+            </div>
+            <div class="field" id="f-car">
+              <label for="car">Your car</label>
+              <input type="text" id="car" name="car" placeholder="e.g. 2015 Honda Civic" maxlength="80" required>
+              <p class="error-text" hidden></p>
+            </div>
+            <fieldset class="field" id="f-service">
+              <legend>What do you need?</legend>
+              <div id="services"></div>
+              <p class="error-text" hidden></p>
+            </fieldset>
+            <div class="field" id="f-note">
+              <label for="note">Anything else we should know? <span class="hint">(optional)</span></label>
+              <textarea id="note" name="note" maxlength="500"></textarea>
+              <p class="error-text" hidden></p>
+            </div>
+
+            <div class="trap" aria-hidden="true">
+              <label for="website">Leave this empty</label>
+              <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+            </div>
+
+            <button type="submit" class="btn btn-big btn-block" id="send">Book my appointment</button>
+          </form>
+
+          <div id="done" class="step done card" hidden>
+            <div class="check" aria-hidden="true">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </div>
+            <h2 tabindex="-1">You're booked!</h2>
+            <p class="when" id="done-when"></p>
+            <p id="done-address" class="muted"></p>
+            <p id="done-call">Need to change or cancel? Call us.</p>
+            <button type="button" class="btn btn-ghost btn-block" id="again">Book another</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="soft" aria-labelledby="hours-title">
+      <div class="wrap">
+        <h2 id="hours-title">Opening hours</h2>
+        <ul class="hours" id="hours"></ul>
+        <div class="contact" id="contact"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div>&copy; <span id="year"></span> <span id="foot-name">Mechanic Shop</span></div>
+      <a href="/admin">Owner login</a>
+    </div>
+  </footer>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

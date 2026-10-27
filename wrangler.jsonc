@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mechanic-shop",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    // Only /api/* runs the Worker first; everything else is served as a static file.
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mechanic-db",
+      // Run `npx wrangler d1 create mechanic-db` and paste the database_id it prints here.
+      "database_id": "REPLACE_WITH_YOUR_D1_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "vars": {
+    // Change this to the shop's own time zone (an IANA name, e.g. "America/Chicago").
+    "TIMEZONE": "America/New_York"
+  }
+
+  // Secret: ADMIN_PASSWORD. Local: put it in .dev.vars. Production: `npx wrangler secret put ADMIN_PASSWORD`.
+}

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Owner page</title>
+  <meta name="theme-color" content="#14213d">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2314213d'/%3E%3Cpath fill='%23fff' d='M17.5 4a4.5 4.5 0 0 0-4.2 6.1L5.2 18.2a1.6 1.6 0 0 0 2.3 2.3l8.1-8.1A4.5 4.5 0 0 0 21.5 8.5l-2.8 2.8-2-.5-.5-2 2.8-2.8A4.5 4.5 0 0 0 17.5 4z'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <span class="brand">
+        <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#c2410c"/><path fill="#fff" d="M17.5 4a4.5 4.5 0 0 0-4.2 6.1L5.2 18.2a1.6 1.6 0 0 0 2.3 2.3l8.1-8.1A4.5 4.5 0 0 0 21.5 8.5l-2.8 2.8-2-.5-.5-2 2.8-2.8A4.5 4.5 0 0 0 17.5 4z"/></svg>
+        <span>Owner page</span>
+      </span>
+      <button type="button" class="btn btn-light btn-small" id="logout" hidden>Log out</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="loading" class="loading"><span class="spinner" aria-hidden="true"></span>Loading&hellip;</div>
+
+    <!-- login -->
+    <section id="login" class="login-box" hidden>
+      <h1>Owner login</h1>
+      <form id="login-form" class="card" novalidate>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" autocomplete="current-password" required>
+        </div>
+        <p class="notice bad" id="login-error" role="alert" hidden></p>
+        <button type="submit" class="btn btn-big btn-block" id="login-btn">Log in</button>
+      </form>
+      <p><a href="/">Back to the booking page</a></p>
+    </section>
+
+    <!-- app -->
+    <div id="app" hidden>
+      <div class="tabs" role="tablist" aria-label="Owner sections">
+        <button type="button" class="tab" role="tab" id="tab-appts" aria-controls="panel-appts" aria-selected="true">Appointments</button>
+        <button type="button" class="tab" role="tab" id="tab-hours" aria-controls="panel-hours" aria-selected="false">Opening hours</button>
+        <button type="button" class="tab" role="tab" id="tab-off" aria-controls="panel-off" aria-selected="false">Days off</button>
+        <button type="button" class="tab" role="tab" id="tab-shop" aria-controls="panel-shop" aria-selected="false">Shop details</button>
+      </div>
+
+      <div id="notice" role="status" aria-live="polite"></div>
+
+      <section id="panel-appts" role="tabpanel" aria-labelledby="tab-appts">
+        <h1>Appointments</h1>
+        <div class="toolbar">
+          <a class="btn" href="/" target="_blank" rel="noopener">Book for a customer</a>
+          <button type="button" class="btn btn-ghost" id="refresh">Refresh</button>
+        </div>
+        <div id="appts"></div>
+      </section>
+
+      <section id="panel-hours" role="tabpanel" aria-labelledby="tab-hours" hidden>
+        <h1>Opening hours</h1>
+        <p class="muted">Choose which days you are open and the hours.</p>
+        <form id="hours-form" novalidate>
+          <div id="week"></div>
+          <h2 style="margin-top:28px">Booking rules</h2>
+          <div class="field">
+            <label for="slotMinutes">Appointment length</label>
+            <select id="slotMinutes">
+              <option value="15">15 minutes</option>
+              <option value="20">20 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="90">1 hour 30 minutes</option>
+              <option value="120">2 hours</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="capacity">Cars at the same time</label>
+            <input type="number" id="capacity" min="1" max="10" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="daysAhead">How far ahead can people book <span class="hint">(days)</span></label>
+            <input type="number" id="daysAhead" min="1" max="90" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="minNoticeHours">Minimum notice <span class="hint">(hours before the appointment)</span></label>
+            <input type="number" id="minNoticeHours" min="0" max="72" inputmode="numeric">
+          </div>
+          <p class="notice info">Appointments that are already booked are not changed when you save.</p>
+          <button type="submit" class="btn btn-big btn-block">Save changes</button>
+        </form>
+      </section>
+
+      <section id="panel-off" role="tabpanel" aria-labelledby="tab-off" hidden>
+        <h1>Days off</h1>
+        <p class="muted">Holidays or any day you will be closed. Nobody can book on these days.</p>
+        <form id="off-form" class="card" novalidate>
+          <div class="field">
+            <label for="off-date">Day</label>
+            <input type="date" id="off-date" required>
+          </div>
+          <div class="field">
+            <label for="off-reason">Reason <span class="hint">(optional)</span></label>
+            <input type="text" id="off-reason" maxlength="100" placeholder="e.g. Holiday">
+          </div>
+          <button type="submit" class="btn btn-block">Add day off</button>
+        </form>
+        <h2 style="margin-top:28px">Coming up</h2>
+        <div id="off-list"></div>
+      </section>
+
+      <section id="panel-shop" role="tabpanel" aria-labelledby="tab-shop" hidden>
+        <h1>Shop details</h1>
+        <p class="muted">This is what customers see on the booking page.</p>
+        <form id="shop-form" novalidate>
+          <div class="field">
+            <label for="shop-name">Shop name</label>
+            <input type="text" id="shop-name" maxlength="80" required>
+          </div>
+          <div class="field">
+            <label for="shop-phone">Phone number</label>
+            <input type="tel" id="shop-phone" maxlength="40" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="shop-address">Address</label>
+            <input type="text" id="shop-address" maxlength="200" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="shop-about">A short line about your shop</label>
+            <textarea id="shop-about" maxlength="500"></textarea>
+          </div>
+          <button type="submit" class="btn btn-big btn-block">Save changes</button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/admin.js"></script>
+</body>
+</html>
