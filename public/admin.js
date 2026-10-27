@@ -36,17 +36,26 @@ function time12(hhmm) {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
 }
 
-const state = { settings: null, today: null };
+const state = { settings: null, today: null, appointments: [] };
 
 // ---------- helpers ----------
 
+// Messages pop up at the bottom of the screen so they are seen wherever the owner has scrolled to.
+let toastTimer;
 function say(text, kind = 'good') {
-  const box = $('notice');
+  const box = $('toast');
+  clearTimeout(toastTimer);
   box.replaceChildren();
-  if (text) {
-    box.append(el('p', { class: 'notice ' + kind, text }));
-    if (kind === 'good') setTimeout(() => { if (box.textContent === text) box.replaceChildren(); }, 4000);
-  }
+  if (!text) return;
+  const ok = el('button', { type: 'button', text: 'OK' });
+  ok.addEventListener('click', () => box.replaceChildren());
+  box.append(el('div', { class: 'toast ' + kind }, el('span', { text }), ok));
+  const ms = kind === 'good' ? 3500 : kind === 'warn' ? 10000 : 12000;
+  toastTimer = setTimeout(() => box.replaceChildren(), ms);
+}
+
+function bookedOn(date) {
+  return state.appointments.filter((a) => a.date === date && a.status === 'booked');
 }
 
 async function api(path, options = {}) {
@@ -92,7 +101,9 @@ async function showApp() {
   $('app').hidden = false;
   $('logout').hidden = false;
   say('');
-  await Promise.all([loadAppointments(), loadSettings(), loadClosed()]);
+  // Appointments first: the days-off list uses them to warn about customers still booked.
+  await loadAppointments();
+  await Promise.all([loadSettings(), loadClosed()]);
 }
 
 $('login-form').addEventListener('submit', async (e) => {
@@ -112,6 +123,10 @@ $('login-form').addEventListener('submit', async (e) => {
   } finally {
     btn.disabled = false;
   }
+});
+
+$('show-pw').addEventListener('change', (e) => {
+  $('password').type = e.target.checked ? 'text' : 'password';
 });
 
 $('logout').addEventListener('click', async () => {
@@ -136,10 +151,16 @@ for (const t of TABS) $('tab-' + t).addEventListener('click', () => selectTab(t)
 async function loadAppointments() {
   const { today, appointments } = await api('/api/admin/appointments');
   state.today = today;
+  state.appointments = appointments;
+  $('off-date').min = today;
+  const now = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  $('updated').textContent = `Last updated at ${now}. This page checks for new bookings every minute.`;
   const box = $('appts');
   box.replaceChildren();
+  if (!appointments.some((a) => a.date >= today && a.status === 'booked')) {
+    box.append(el('p', { class: 'notice info', text: 'No upcoming appointments. New bookings will show up here.' }));
+  }
   if (!appointments.length) {
-    box.append(el('p', { class: 'notice info', text: 'No appointments yet. When someone books, they will show up here.' }));
     return;
   }
   const groups = new Map();
@@ -154,14 +175,18 @@ async function loadAppointments() {
     else if (date === addDays(today, 1)) label = 'Tomorrow';
     else label = midDate.format(utcDate(date));
     const active = list.filter((a) => a.status === 'booked').length;
-    const cards = list.map(apptCard);
+    // Active bookings first, cancelled ones at the bottom of the day.
+    const sorted = [...list.filter((a) => a.status === 'booked'), ...list.filter((a) => a.status !== 'booked')];
+    const cards = sorted.map(apptCard);
     if (past) {
       const d = el('details', { class: 'day-group past' },
         el('summary', { text: `${label} (earlier, ${active} booked)` }));
       d.append(...cards);
       box.append(d);
     } else {
-      box.append(el('div', { class: 'day-group' }, el('h3', { text: label }), ...cards));
+      const count = active === 1 ? '1 car' : `${active} cars`;
+      const h = el('h3', {}, document.createTextNode(label + ' '), el('span', { class: 'count', text: `· ${count}` }));
+      box.append(el('div', { class: 'day-group' }, h, ...cards));
     }
   }
 }
@@ -189,6 +214,7 @@ function apptCard(a) {
       await api(`/api/admin/appointments/${a.id}/cancel`, { method: 'POST' });
       say('Appointment cancelled.');
       await loadAppointments();
+      await loadClosed();
     }));
     card.append(btn);
   }
@@ -196,6 +222,14 @@ function apptCard(a) {
 }
 
 $('refresh').addEventListener('click', guard(async () => { await loadAppointments(); say('Up to date.'); }));
+
+// Check for new bookings every minute while the appointments list is on screen.
+async function autoRefresh() {
+  if (document.hidden || $('app').hidden || $('panel-appts').hidden) return;
+  try { await loadAppointments(); } catch { /* try again next time */ }
+}
+setInterval(autoRefresh, 60 * 1000);
+document.addEventListener('visibilitychange', autoRefresh);
 
 // ---------- opening hours ----------
 
@@ -212,17 +246,39 @@ function buildWeek() {
     const range = el('div', { class: 'range' },
       el('div', {}, el('label', { for: `from-${i}`, text: 'From' }), from),
       el('div', {}, el('label', { for: `to-${i}`, text: 'To' }), to));
+    const closedNote = el('p', { class: 'closed-note', text: 'Closed all day. Nobody can book.' });
     range.hidden = !r.open;
+    closedNote.hidden = r.open;
     toggle.addEventListener('click', () => {
       const open = toggle.getAttribute('aria-pressed') !== 'true';
       toggle.setAttribute('aria-pressed', String(open));
       toggle.textContent = open ? 'Open' : 'Closed';
       toggle.setAttribute('aria-label', `${WEEKDAYS[i]}: ${open ? 'Open' : 'Closed'}. Tap to change.`);
       range.hidden = !open;
+      closedNote.hidden = open;
+      slotHint();
     });
-    box.append(el('div', { class: 'week-row' }, el('span', { class: 'day-name', text: WEEKDAYS[i] }), toggle, range));
+    from.addEventListener('change', slotHint);
+    box.append(el('div', { class: 'week-row' }, el('span', { class: 'day-name', text: WEEKDAYS[i] }), toggle, range, closedNote));
   }
 }
+
+// Show the owner what the chosen length means, e.g. "8:00 AM, 8:30 AM, 9:00 AM and so on".
+function slotHint() {
+  const len = Number($('slotMinutes').value);
+  const first = ORDER.find((i) => $(`open-${i}`)?.getAttribute('aria-pressed') === 'true');
+  if (first === undefined || !len) {
+    $('slot-hint').textContent = 'How much time each booking takes up.';
+    return;
+  }
+  const [h, m] = ($(`from-${first}`).value || '09:00').split(':').map(Number);
+  const times = [0, 1, 2].map((k) => {
+    const t = h * 60 + m + k * len;
+    return time12(`${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`);
+  });
+  $('slot-hint').textContent = `Customers will see times like ${times.join(', ')} and so on.`;
+}
+$('slotMinutes').addEventListener('change', slotHint);
 
 function fillSettings() {
   const { schedule, shop } = state.settings;
@@ -231,6 +287,7 @@ function fillSettings() {
   $('capacity').value = schedule.capacity;
   $('daysAhead').value = schedule.daysAhead;
   $('minNoticeHours').value = schedule.minNoticeHours;
+  slotHint();
   $('shop-name').value = shop.name;
   $('shop-phone').value = shop.phone;
   $('shop-address').value = shop.address;
@@ -298,11 +355,12 @@ async function loadClosed() {
       say('Day off removed.');
       await loadClosed();
     }));
-    box.append(el('div', { class: 'list-row' },
-      el('div', { class: 'what' },
-        el('strong', { text: shortDate.format(utcDate(d.date)) }),
-        el('div', { class: 'muted', text: d.reason || '' })),
-      btn));
+    const what = el('div', { class: 'what' },
+      el('strong', { text: shortDate.format(utcDate(d.date)) }),
+      el('div', { class: 'muted', text: d.reason || '' }));
+    const n = bookedOn(d.date).length;
+    if (n) what.append(el('div', { class: 'warn-text', text: `${n} ${n === 1 ? 'customer is' : 'customers are'} still booked this day. Call them to move it.` }));
+    box.append(el('div', { class: 'list-row' }, what, btn));
   }
 }
 
@@ -310,10 +368,13 @@ $('off-form').addEventListener('submit', guard(async (e) => {
   e.preventDefault();
   const date = $('off-date').value;
   if (!date) { say('Please pick a day first.', 'bad'); return; }
+  if (date < state.today) { say('That day is in the past. Please pick a day from today on.', 'bad'); return; }
   await api('/api/admin/closed-dates', { method: 'POST', body: { date, reason: $('off-reason').value } });
   $('off-date').value = '';
   $('off-reason').value = '';
-  say('Day off added.');
+  const n = bookedOn(date).length;
+  if (n) say(`Day off added. You still have ${n} ${n === 1 ? 'appointment' : 'appointments'} that day. Call ${n === 1 ? 'that customer' : 'those customers'} to move it.`, 'warn');
+  else say('Day off added. Nobody can book that day now.');
   await loadClosed();
 }));
 

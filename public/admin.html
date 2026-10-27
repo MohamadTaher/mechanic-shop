@@ -30,6 +30,7 @@
         <div class="field">
           <label for="password">Password</label>
           <input type="password" id="password" autocomplete="current-password" required>
+          <label class="check-row"><input type="checkbox" id="show-pw"> Show password</label>
         </div>
         <p class="notice bad" id="login-error" role="alert" hidden></p>
         <button type="submit" class="btn btn-big btn-block" id="login-btn">Log in</button>
@@ -46,10 +47,9 @@
         <button type="button" class="tab" role="tab" id="tab-shop" aria-controls="panel-shop" aria-selected="false">Shop details</button>
       </div>
 
-      <div id="notice" role="status" aria-live="polite"></div>
-
       <section id="panel-appts" role="tabpanel" aria-labelledby="tab-appts">
         <h1>Appointments</h1>
+        <p class="updated" id="updated"></p>
         <div class="toolbar">
           <a class="btn" href="/" target="_blank" rel="noopener">Book for a customer</a>
           <button type="button" class="btn btn-ghost" id="refresh">Refresh</button>
@@ -74,10 +74,12 @@
               <option value="90">1 hour 30 minutes</option>
               <option value="120">2 hours</option>
             </select>
+            <p class="hint-below" id="slot-hint">How much time each booking takes up.</p>
           </div>
           <div class="field">
-            <label for="capacity">Cars at the same time</label>
+            <label for="capacity">How many cars you can take at the same time</label>
             <input type="number" id="capacity" min="1" max="10" inputmode="numeric">
+            <p class="hint-below">Use 1 if you work on one car at a time.</p>
           </div>
           <div class="field">
             <label for="daysAhead">How far ahead can people book <span class="hint">(days)</span></label>
@@ -87,7 +89,7 @@
             <label for="minNoticeHours">Minimum notice <span class="hint">(hours before the appointment)</span></label>
             <input type="number" id="minNoticeHours" min="0" max="72" inputmode="numeric">
           </div>
-          <p class="notice info">Appointments that are already booked are not changed when you save.</p>
+          <p class="notice info">Appointments that are already booked stay as they are when you save.</p>
           <button type="submit" class="btn btn-big btn-block">Save changes</button>
         </form>
       </section>
@@ -135,6 +137,8 @@
       </section>
     </div>
   </main>
+
+  <div class="toast-wrap" id="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="/admin.js"></script>
 </body>
